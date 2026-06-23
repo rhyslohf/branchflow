@@ -1,6 +1,10 @@
 import { appState, selectedBranchId, setSelectedBranchId, saveState, uuid } from './state.js';
 import { confirmAction, showToast } from './dialogs.js';
-import { render, getBranchColor, getEnvColor } from './canvas.js';
+import { getBranchColor, getEnvColor } from './utils.js';
+
+// render is injected by main.js via initEditor(renderFn) to avoid circular imports
+let _render = () => {};
+
 
 export let editMode = 'edit'; // 'edit' | 'add'
 
@@ -11,7 +15,7 @@ export function selectBranch(id) {
   if (!branch) return;
   populatePanel(branch);
   openPanel();
-  render();
+  _render();
 }
 
 export function openAddPanel() {
@@ -19,7 +23,7 @@ export function openAddPanel() {
   editMode = 'add';
   populatePanel(null);
   openPanel();
-  render();
+  _render();
 }
 
 export function populatePanel(branch) {
@@ -134,7 +138,7 @@ export function closePanel() {
     panel.setAttribute('aria-hidden', 'true');
   }
   setSelectedBranchId(null);
-  render();
+  _render();
 }
 
 function onTypeChange() {
@@ -244,7 +248,7 @@ export function savePanel() {
   }
 
   saveState();
-  render();
+  _render();
 
   // If we just added, switch to edit mode for the new branch
   if (editMode === 'add') {
@@ -286,12 +290,13 @@ export function deleteBranch() {
       saveState();
       closePanel();
       showToast(`Branch deleted`, 'info');
-      render();
+      _render();
     }
   );
 }
 
-export function initEditor() {
+export function initEditor(renderFn) {
+  if (renderFn) _render = renderFn;
   const colorInput = document.getElementById('edit-color');
   if (colorInput) {
     colorInput.addEventListener('input', function() {

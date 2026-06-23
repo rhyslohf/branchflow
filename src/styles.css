@@ -569,3 +569,32 @@ input, select, textarea { font-family: var(--font-ui); }
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ─── DRAG-TO-REORDER ────────────────────────────────────────────────────────── */
+/* Ghost node follows the cursor during drag */
+.drag-ghost {
+  opacity: 0.75;
+  filter: drop-shadow(0 4px 16px rgba(0,0,0,0.6));
+  transition: none;
+}
+
+/* The original node placeholder while dragging (faded, dashed) */
+.branch-node.dragging .node-bg {
+  opacity: 0.25;
+  stroke-dasharray: 6 3;
+}
+.branch-node.dragging text {
+  opacity: 0.2;
+}
+
+/* Drop-indicator horizontal line */
+.drop-indicator {
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  animation: dropPulse 0.7s ease-in-out infinite alternate;
+}
+@keyframes dropPulse {
+  from { opacity: 0.55; }
+  to   { opacity: 1; }
+}
+

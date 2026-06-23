@@ -23,8 +23,11 @@ import {
 import {
   initEditor,
   openAddPanel,
-  closePanel
+  closePanel,
+  selectBranch
 } from './editor.js';
+
+import { initSidebar } from './sidebar.js';
 
 import {
   initSettings,
@@ -151,8 +154,9 @@ document.addEventListener('DOMContentLoaded', () => {
   loadState();
   initToolbar();
   initDialogs();
-  initCanvas();
-  initEditor();
+  initSidebar(selectBranch);
+  initCanvas(selectBranch);
+  initEditor(render);
   initSettings();
   initHotkeys();
   resetView();

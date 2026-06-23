@@ -1,12 +1,18 @@
 import { appState, selectedBranchId } from './state.js';
-import { getBranchColor } from './canvas.js';
-import { selectBranch } from './editor.js';
+import { getBranchColor } from './utils.js';
+
+// selectBranch is injected by main.js via initSidebar(selectFn) to avoid circular imports
+let _selectBranch = () => {};
+
+export function initSidebar(selectFn) {
+  if (selectFn) _selectBranch = selectFn;
+}
 
 export function renderSidebar() {
   const list = document.getElementById('branch-list');
   if (!list) return;
   list.innerHTML = '';
-  
+
   const countEl = document.getElementById('branch-count');
   if (countEl) {
     countEl.textContent = appState.branches.length;
@@ -30,8 +36,8 @@ export function renderSidebar() {
       <span class="branch-item-name">${b.name}</span>
       <span class="branch-item-type">${b.type}</span>
     `;
-    item.addEventListener('click', () => selectBranch(b.id));
-    item.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') selectBranch(b.id); });
+    item.addEventListener('click', () => _selectBranch(b.id));
+    item.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') _selectBranch(b.id); });
     list.appendChild(item);
   });
 }

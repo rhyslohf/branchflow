@@ -1,5 +1,6 @@
 import { appState, saveState } from './state.js';
-import { render, getEnvColor } from './canvas.js';
+import { render } from './canvas.js';
+import { getEnvColor } from './utils.js';
 import { showToast } from './dialogs.js';
 
 export function openSettings() {

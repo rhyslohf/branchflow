@@ -142,3 +142,36 @@ export function manualSave() {
   saveState();
   showToast('Saved to local storage ✓', 'success');
 }
+
+/**
+ * Move the branch with `fromId` to sit immediately BEFORE the branch with
+ * `beforeId` in appState.branches, but only when both share the same type.
+ * If `beforeId` is null the branch is moved to the end of its type group.
+ * Returns true if a reorder occurred, false if it was a no-op.
+ */
+export function reorderBranch(fromId, beforeId) {
+  if (fromId === beforeId) return false;
+
+  const fromBranch = appState.branches.find(b => b.id === fromId);
+  const beforeBranch = beforeId ? appState.branches.find(b => b.id === beforeId) : null;
+
+  // Cross-type drops are blocked
+  if (beforeBranch && beforeBranch.type !== fromBranch.type) return false;
+
+  // Remove fromBranch from the array
+  const arr = appState.branches;
+  const fromIdx = arr.findIndex(b => b.id === fromId);
+  arr.splice(fromIdx, 1);
+
+  if (beforeBranch) {
+    const targetIdx = arr.findIndex(b => b.id === beforeId);
+    arr.splice(targetIdx, 0, fromBranch);
+  } else {
+    // No target — append after the last branch of the same type
+    let lastIdx = -1;
+    arr.forEach((b, i) => { if (b.type === fromBranch.type) lastIdx = i; });
+    arr.splice(lastIdx + 1, 0, fromBranch);
+  }
+
+  return true;
+}

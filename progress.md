@@ -24,6 +24,14 @@
 
 ---
 
+### Session 2 — Circular Dependency Fix & Drag-to-Reorder within Lanes
+**Date:** 2026-06-24  
+**Agent:** Antigravity (Gemini 3.5 Flash)  
+**Summary:** Resolved the circular module dependency chain between canvas.js and editor.js by extracting branch/environment color helper functions into a new utils.js and refactoring imports to use callbacks. Implemented drag-to-reorder within swimlanes using custom SVG drag tracking (mouse down/move/up), ghost rendering, sibling detection, drag-drop visual indicators, and persisting order state via `reorderBranch`.  
+**Files changed:** `src/utils.js`, `src/state.js`, `src/canvas.js`, `src/editor.js`, `src/sidebar.js`, `src/main.js`, `src/settings.js`, `src/styles.css`
+
+---
+
 ## Feature Status
 
 ### Core Infrastructure
@@ -104,7 +112,7 @@
 ## Backlog (Not Yet Built)
 
 ### Nice-to-Have (v1.1)
-- [ ] Drag-to-reorder branches within their lane
+- [x] Drag-to-reorder branches within their lane
 - [ ] Undo/redo stack (in-memory, max 20)
 - [ ] Branch search/filter in sidebar
 - [ ] Mini-map for large graphs (>15 branches)
