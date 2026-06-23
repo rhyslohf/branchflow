@@ -16,6 +16,14 @@
 
 ---
 
+### Session 1 — Convert to Vite & NPM Project Setup
+**Date:** 2026-06-24  
+**Agent:** Antigravity (Gemini 3.5 Flash)  
+**Summary:** Refactored the single-file SPA into a modular ES-module project using Vite. Extracted CSS styles, state logic, canvas rendering, edit/add panels, settings, and toast/confirmation dialogs into individual module files. Installed Lodash, Dayjs, Fuse.js, FileSaver, and Hotkeys-js as npm packages instead of CDN scripts.  
+**Files changed:** `index.html`, `package.json`, `package-lock.json`, `vite.config.js`, `.gitignore`, `src/styles.css`, `src/state.js`, `src/layout.js`, `src/dialogs.js`, `src/canvas.js`, `src/sidebar.js`, `src/editor.js`, `src/settings.js`, `src/main.js`
+
+---
+
 ## Feature Status
 
 ### Core Infrastructure
