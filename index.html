@@ -1,1726 +1,205 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>GitFlow Visualizer</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-<style>
-/* ─── DESIGN TOKENS ────────────────────────────────────────────────────────── */
-:root {
-  --bg-base:      #0d1117;
-  --bg-surface:   #161b22;
-  --bg-elevated:  #1c2128;
-  --bg-overlay:   #21262d;
-  --border:       #30363d;
-  --border-focus: #58a6ff;
-  --text-primary: #e6edf3;
-  --text-muted:   #7d8590;
-  --text-faint:   #484f58;
-  --accent-main:  #00d4ff;
-  --accent-feat:  #f59e0b;
-  --accent-rel:   #10b981;
-  --accent-hot:   #ef4444;
-  --accent-cust:  #a855f7;
-  --env-dev:      #3b82f6;
-  --env-qas:      #f59e0b;
-  --env-prod:     #10b981;
-  --font-ui:      'Inter', sans-serif;
-  --font-code:    'JetBrains Mono', monospace;
-  --radius-sm:    4px;
-  --radius-md:    8px;
-  --radius-lg:    12px;
-  --shadow-panel: 0 8px 32px rgba(0,0,0,0.5);
-  --transition:   0.18s ease;
-}
-
-/* ─── RESET ─────────────────────────────────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-  font-family: var(--font-ui);
-  background: var(--bg-base);
-  color: var(--text-primary);
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  user-select: none;
-}
-button { cursor: pointer; font-family: var(--font-ui); }
-input, select, textarea { font-family: var(--font-ui); }
-
-/* ─── TOOLBAR ────────────────────────────────────────────────────────────────── */
-#toolbar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 20px;
-  height: 56px;
-  background: var(--bg-surface);
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-  z-index: 100;
-}
-.toolbar-brand {
-  display: flex;
-  flex-direction: column;
-  margin-right: 8px;
-}
-.toolbar-brand .title {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--accent-main);
-  font-family: var(--font-code);
-  letter-spacing: 0.02em;
-}
-.toolbar-brand .subtitle {
-  font-size: 10px;
-  color: var(--text-muted);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-.toolbar-sep {
-  width: 1px;
-  height: 28px;
-  background: var(--border);
-  flex-shrink: 0;
-}
-.toolbar-spacer { flex: 1; }
-.toolbar-meta {
-  font-size: 11px;
-  color: var(--text-faint);
-  font-family: var(--font-code);
-  white-space: nowrap;
-}
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg-elevated);
-  color: var(--text-primary);
-  font-size: 12px;
-  font-weight: 500;
-  transition: background var(--transition), border-color var(--transition);
-  white-space: nowrap;
-}
-.btn:hover { background: var(--bg-overlay); border-color: #484f58; }
-.btn.btn-primary {
-  background: rgba(0,212,255,0.12);
-  border-color: rgba(0,212,255,0.35);
-  color: var(--accent-main);
-}
-.btn.btn-primary:hover { background: rgba(0,212,255,0.2); }
-.btn.btn-danger {
-  background: rgba(239,68,68,0.12);
-  border-color: rgba(239,68,68,0.35);
-  color: var(--accent-hot);
-}
-.btn.btn-danger:hover { background: rgba(239,68,68,0.2); }
-.btn svg { flex-shrink: 0; }
-
-/* ─── MAIN LAYOUT ────────────────────────────────────────────────────────────── */
-#app {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-  position: relative;
-}
-
-/* ─── SIDEBAR ────────────────────────────────────────────────────────────────── */
-#sidebar {
-  width: 220px;
-  flex-shrink: 0;
-  background: var(--bg-surface);
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-.sidebar-header {
-  padding: 14px 16px 10px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.sidebar-header h2 {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-}
-.badge {
-  background: var(--bg-overlay);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  font-size: 10px;
-  color: var(--text-muted);
-  padding: 1px 7px;
-  font-family: var(--font-code);
-}
-#branch-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 8px 0;
-}
-#branch-list::-webkit-scrollbar { width: 4px; }
-#branch-list::-webkit-scrollbar-track { background: transparent; }
-#branch-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-.branch-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 16px;
-  cursor: pointer;
-  transition: background var(--transition);
-  position: relative;
-}
-.branch-item:hover { background: var(--bg-elevated); }
-.branch-item.active { background: var(--bg-overlay); }
-.branch-item.active::before {
-  content: '';
-  position: absolute;
-  left: 0; top: 4px; bottom: 4px;
-  width: 2px;
-  border-radius: 1px;
-}
-.branch-color-dot {
-  width: 10px; height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.branch-item-name {
-  font-size: 12px;
-  font-family: var(--font-code);
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-}
-.branch-item-type {
-  font-size: 9px;
-  text-transform: uppercase;
-  color: var(--text-faint);
-  letter-spacing: 0.06em;
-}
-.sidebar-footer {
-  padding: 12px 16px;
-  border-top: 1px solid var(--border);
-}
-.btn-add {
-  width: 100%;
-  justify-content: center;
-  padding: 8px;
-  border-style: dashed;
-}
-
-/* ─── CANVAS WRAPPER ─────────────────────────────────────────────────────────── */
-#canvas-wrapper {
-  flex: 1;
-  overflow: hidden;
-  position: relative;
-  background:
-    radial-gradient(circle at 50% 0%, rgba(0,212,255,0.03) 0%, transparent 60%),
-    linear-gradient(180deg, var(--bg-base) 0%, #0a0e14 100%);
-  cursor: grab;
-}
-#canvas-wrapper.panning { cursor: grabbing; }
-#canvas-wrapper.panning * { pointer-events: none; }
-#svg-canvas {
-  position: absolute;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  overflow: visible;
-}
-#canvas-transform-group {
-  transform-origin: 0 0;
-}
-
-/* Gridlines background */
-#canvas-wrapper::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(var(--bg-elevated) 1px, transparent 1px),
-    linear-gradient(90deg, var(--bg-elevated) 1px, transparent 1px);
-  background-size: 40px 40px;
-  opacity: 0.35;
-  pointer-events: none;
-}
-
-/* ─── CANVAS CONTROLS ────────────────────────────────────────────────────────── */
-#canvas-controls {
-  position: absolute;
-  bottom: 20px;
-  right: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  z-index: 50;
-}
-.canvas-ctrl-btn {
-  width: 36px; height: 36px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg-elevated);
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  transition: background var(--transition);
-}
-.canvas-ctrl-btn:hover { background: var(--bg-overlay); }
-#zoom-display {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  font-size: 11px;
-  font-family: var(--font-code);
-  color: var(--text-muted);
-  padding: 6px 8px;
-  text-align: center;
-  white-space: nowrap;
-}
-
-/* ─── EDIT PANEL ─────────────────────────────────────────────────────────────── */
-#edit-panel {
-  position: absolute;
-  top: 0; right: 0; bottom: 0;
-  width: 320px;
-  background: var(--bg-surface);
-  border-left: 1px solid var(--border);
-  box-shadow: var(--shadow-panel);
-  display: flex;
-  flex-direction: column;
-  transform: translateX(100%);
-  transition: transform 0.22s cubic-bezier(0.4,0,0.2,1);
-  z-index: 200;
-  overflow: hidden;
-}
-#edit-panel.open { transform: translateX(0); }
-.panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-.panel-header h3 {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-.panel-close {
-  width: 28px; height: 28px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all var(--transition);
-}
-.panel-close:hover { background: var(--bg-overlay); color: var(--text-primary); }
-.panel-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.panel-body::-webkit-scrollbar { width: 4px; }
-.panel-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-.panel-footer {
-  padding: 16px 20px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-/* Form Elements */
-.form-group { display: flex; flex-direction: column; gap: 6px; }
-.form-label {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--text-muted);
-}
-.form-input {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  font-size: 13px;
-  padding: 8px 10px;
-  outline: none;
-  transition: border-color var(--transition);
-  width: 100%;
-}
-.form-input:focus { border-color: var(--border-focus); }
-.form-input option { background: var(--bg-elevated); }
-.form-select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237d8590' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; cursor: pointer; }
-.form-color-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.form-color-input {
-  width: 38px; height: 32px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg-elevated);
-  cursor: pointer;
-  padding: 3px;
-}
-.form-color-label {
-  font-size: 12px;
-  font-family: var(--font-code);
-  color: var(--text-muted);
-}
-.multi-select {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  max-height: 110px;
-  overflow-y: auto;
-}
-.multi-select::-webkit-scrollbar { width: 4px; }
-.multi-select::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-.multi-select-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
-  cursor: pointer;
-  transition: background var(--transition);
-}
-.multi-select-item:hover { background: var(--bg-overlay); }
-.multi-select-item input[type="checkbox"] { accent-color: var(--accent-main); flex-shrink: 0; }
-.multi-select-item label { font-size: 12px; font-family: var(--font-code); cursor: pointer; }
-.checkbox-group { display: flex; flex-direction: column; gap: 6px; }
-.checkbox-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 0;
-}
-.checkbox-item input[type="checkbox"] { accent-color: var(--accent-main); width: 14px; height: 14px; }
-.checkbox-item label {
-  font-size: 13px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.env-dot {
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  display: inline-block;
-}
-.form-hint { font-size: 11px; color: var(--text-faint); }
-.form-error { font-size: 11px; color: var(--accent-hot); display: none; }
-.form-error.visible { display: block; }
-.form-divider {
-  border: none;
-  border-top: 1px solid var(--border);
-  margin: 4px 0;
-}
-
-/* ─── SETTINGS PANEL ─────────────────────────────────────────────────────────── */
-#settings-panel {
-  position: absolute;
-  top: 0; right: 0; bottom: 0;
-  width: 340px;
-  background: var(--bg-surface);
-  border-left: 1px solid var(--border);
-  box-shadow: var(--shadow-panel);
-  display: flex;
-  flex-direction: column;
-  transform: translateX(100%);
-  transition: transform 0.22s cubic-bezier(0.4,0,0.2,1);
-  z-index: 210;
-  overflow: hidden;
-}
-#settings-panel.open { transform: translateX(0); }
-
-/* ─── SVG NODES & EDGES ──────────────────────────────────────────────────────── */
-.branch-node { cursor: pointer; }
-.branch-node:hover .node-bg { filter: brightness(1.2); }
-.branch-node.selected .node-bg { stroke-width: 2.5; }
-.node-bg {
-  rx: 8; ry: 8;
-  stroke-width: 1.5;
-  transition: filter 0.15s;
-}
-.node-label {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  font-weight: 500;
-  fill: white;
-  pointer-events: none;
-  dominant-baseline: middle;
-}
-.node-type-tag {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
-  fill: rgba(255,255,255,0.55);
-  pointer-events: none;
-  dominant-baseline: middle;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-.env-badge-circle { transition: opacity 0.15s; }
-.lane-label {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
-  fill: #484f58;
-  dominant-baseline: middle;
-  letter-spacing: 0.04em;
-}
-.lane-line {
-  stroke: #21262d;
-  stroke-width: 1;
-  stroke-dasharray: 4 6;
-}
-.edge-source {
-  stroke-dasharray: 6 4;
-  fill: none;
-  stroke-width: 1.5;
-  opacity: 0.6;
-}
-.edge-merge {
-  fill: none;
-  stroke-width: 2;
-  opacity: 0.85;
-}
-.edge-arrow { fill-opacity: 0.85; }
-
-/* ─── TOAST ──────────────────────────────────────────────────────────────────── */
-#toast-container {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 9999;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  pointer-events: none;
-}
-.toast {
-  padding: 10px 18px;
-  border-radius: var(--radius-md);
-  font-size: 13px;
-  font-weight: 500;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-  animation: toastIn 0.2s ease;
-  pointer-events: auto;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.toast.success { background: #0d2818; border: 1px solid #10b981; color: #34d399; }
-.toast.error   { background: #1f0e0e; border: 1px solid #ef4444; color: #f87171; }
-.toast.info    { background: #0d1f2d; border: 1px solid #00d4ff; color: #7dd3fc; }
-@keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-/* ─── CONFIRM DIALOG ─────────────────────────────────────────────────────────── */
-#confirm-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.65);
-  z-index: 9000;
-  display: none;
-  align-items: center;
-  justify-content: center;
-}
-#confirm-overlay.open { display: flex; }
-#confirm-dialog {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 28px 32px;
-  width: 380px;
-  box-shadow: var(--shadow-panel);
-}
-#confirm-dialog h4 { font-size: 16px; margin-bottom: 10px; }
-#confirm-dialog p { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; line-height: 1.5; }
-#confirm-dialog .btn-row { display: flex; gap: 10px; justify-content: flex-end; }
-
-/* ─── EMPTY STATE ────────────────────────────────────────────────────────────── */
-#empty-state {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  text-align: center;
-  pointer-events: none;
-  display: none;
-}
-#empty-state.visible { display: block; }
-#empty-state svg { opacity: 0.15; margin-bottom: 16px; }
-#empty-state p { font-size: 14px; color: var(--text-faint); }
-
-/* ─── SCROLLBARS ─────────────────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GitFlow Visualizer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script type="module" src="/src/main.js"></script>
 </head>
 <body>
 
-<!-- ═══════════ TOOLBAR ═══════════ -->
-<header id="toolbar">
-  <div class="toolbar-brand">
-    <span class="title">⬡ GitFlow Viz</span>
-    <span class="subtitle">Branch · Deploy · Flow</span>
-  </div>
-  <div class="toolbar-sep"></div>
-  <button class="btn btn-primary" onclick="openAddPanel()" aria-label="Add Branch">
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    Add Branch
-  </button>
-  <div class="toolbar-sep"></div>
-  <button class="btn" onclick="manualSave()" aria-label="Save to storage">
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-    Save
-  </button>
-  <button class="btn" onclick="exportJSON()" aria-label="Export JSON">
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-    Export
-  </button>
-  <label class="btn" style="cursor:pointer;" aria-label="Import JSON">
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-    Import
-    <input type="file" accept=".json" style="display:none" onchange="importJSON(event)" />
-  </label>
-  <button class="btn" onclick="openSettings()" aria-label="Settings">
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-    Settings
-  </button>
-  <button class="btn btn-danger" onclick="confirmReset()" aria-label="Reset to defaults">
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
-    Reset
-  </button>
-  <div class="toolbar-spacer"></div>
-  <span class="toolbar-meta" id="save-timestamp">Not saved yet</span>
-</header>
+  <!-- ═══════════ TOOLBAR ═══════════ -->
+  <header id="toolbar">
+    <div class="toolbar-brand">
+      <span class="title">⬡ GitFlow Viz</span>
+      <span class="subtitle">Branch · Deploy · Flow</span>
+    </div>
+    <div class="toolbar-sep"></div>
+    <button class="btn btn-primary" id="toolbar-add-btn" aria-label="Add Branch">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Branch
+    </button>
+    <div class="toolbar-sep"></div>
+    <button class="btn" id="toolbar-save-btn" aria-label="Save to storage">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      Save
+    </button>
+    <button class="btn" id="toolbar-export-btn" aria-label="Export JSON">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export
+    </button>
+    <label class="btn" style="cursor:pointer;" aria-label="Import JSON">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Import
+      <input type="file" id="toolbar-import-input" accept=".json" style="display:none" />
+    </label>
+    <button class="btn" id="toolbar-settings-btn" aria-label="Settings">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      Settings
+    </button>
+    <button class="btn btn-danger" id="toolbar-reset-btn" aria-label="Reset to defaults">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+      Reset
+    </button>
+    <div class="toolbar-spacer"></div>
+    <span class="toolbar-meta" id="save-timestamp">Not saved yet</span>
+  </header>
 
-<!-- ═══════════ MAIN APP ═══════════ -->
-<div id="app">
+  <!-- ═══════════ MAIN APP ═══════════ -->
+  <div id="app">
 
-  <!-- SIDEBAR -->
-  <nav id="sidebar" aria-label="Branch list">
-    <div class="sidebar-header">
-      <h2>Branches</h2>
-      <span class="badge" id="branch-count">0</span>
-    </div>
-    <div id="branch-list" role="list"></div>
-    <div class="sidebar-footer">
-      <button class="btn btn-add" onclick="openAddPanel()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Add Branch
-      </button>
-    </div>
-  </nav>
-
-  <!-- CANVAS -->
-  <main id="canvas-wrapper" role="img" aria-label="Git flow visualization canvas">
-    <svg id="svg-canvas" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <marker id="arrow-end" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-          <path d="M0,0 L0,6 L8,3 z" class="edge-arrow" fill="#7d8590" />
-        </marker>
-        <marker id="arrow-main" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-          <path d="M0,0 L0,6 L8,3 z" class="edge-arrow" fill="#00d4ff" />
-        </marker>
-      </defs>
-      <g id="canvas-transform-group">
-        <g id="lanes-layer"></g>
-        <g id="edges-layer"></g>
-        <g id="nodes-layer"></g>
-      </g>
-    </svg>
-    <div id="empty-state">
-      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#7d8590" stroke-width="1"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      <p>No branches yet. Add one to get started.</p>
-    </div>
-    <div id="canvas-controls">
-      <button class="canvas-ctrl-btn" onclick="zoomIn()" aria-label="Zoom in">+</button>
-      <span id="zoom-display">100%</span>
-      <button class="canvas-ctrl-btn" onclick="zoomOut()" aria-label="Zoom out">−</button>
-      <button class="canvas-ctrl-btn" onclick="resetView()" aria-label="Reset view" title="Reset View">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-      </button>
-    </div>
-  </main>
-
-  <!-- EDIT PANEL -->
-  <aside id="edit-panel" aria-label="Branch editor" aria-hidden="true">
-    <div class="panel-header">
-      <h3 id="panel-title">Edit Branch</h3>
-      <button class="panel-close" onclick="closePanel()" aria-label="Close panel">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <div class="panel-body">
-      <input type="hidden" id="edit-branch-id" />
-      <div class="form-group">
-        <label class="form-label" for="edit-name">Branch Name</label>
-        <input class="form-input" id="edit-name" type="text" placeholder="e.g. feature/my-feature" autocomplete="off" />
-        <span class="form-error" id="err-name"></span>
+    <!-- SIDEBAR -->
+    <nav id="sidebar" aria-label="Branch list">
+      <div class="sidebar-header">
+        <h2>Branches</h2>
+        <span class="badge" id="branch-count">0</span>
       </div>
-      <div class="form-group">
-        <label class="form-label" for="edit-type">Type</label>
-        <select class="form-input form-select" id="edit-type" onchange="onTypeChange()">
-          <option value="main">main</option>
-          <option value="feature">feature</option>
-          <option value="release">release</option>
-          <option value="hotfix">hotfix</option>
-          <option value="custom">custom</option>
-        </select>
+      <div id="branch-list" role="list"></div>
+      <div class="sidebar-footer">
+        <button class="btn btn-add" id="sidebar-add-btn">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Branch
+        </button>
       </div>
-      <div class="form-group">
-        <label class="form-label">Color Override</label>
-        <div class="form-color-row">
-          <input type="color" class="form-color-input" id="edit-color" value="#00d4ff" />
-          <span class="form-color-label" id="edit-color-display">#00d4ff</span>
-          <button class="btn" style="padding:4px 8px;font-size:11px;" onclick="clearColorOverride()">Use type default</button>
+    </nav>
+
+    <!-- CANVAS -->
+    <main id="canvas-wrapper" role="img" aria-label="Git flow visualization canvas">
+      <svg id="svg-canvas" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrow-end" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" class="edge-arrow" fill="#7d8590" />
+          </marker>
+          <marker id="arrow-main" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" class="edge-arrow" fill="#00d4ff" />
+          </marker>
+        </defs>
+        <g id="canvas-transform-group">
+          <g id="lanes-layer"></g>
+          <g id="edges-layer"></g>
+          <g id="nodes-layer"></g>
+        </g>
+      </svg>
+      <div id="empty-state">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#7d8590" stroke-width="1"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <p>No branches yet. Add one to get started.</p>
+      </div>
+      <div id="canvas-controls">
+        <button class="canvas-ctrl-btn" aria-label="Zoom in">+</button>
+        <span id="zoom-display">100%</span>
+        <button class="canvas-ctrl-btn" aria-label="Zoom out">−</button>
+        <button class="canvas-ctrl-btn" aria-label="Reset view" title="Reset View">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        </button>
+      </div>
+    </main>
+
+    <!-- EDIT PANEL -->
+    <aside id="edit-panel" aria-label="Branch editor" aria-hidden="true">
+      <div class="panel-header">
+        <h3 id="panel-title">Edit Branch</h3>
+        <button class="panel-close" id="edit-panel-close" aria-label="Close panel">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="panel-body">
+        <input type="hidden" id="edit-branch-id" />
+        <div class="form-group">
+          <label class="form-label" for="edit-name">Branch Name</label>
+          <input class="form-input" id="edit-name" type="text" placeholder="e.g. feature/my-feature" autocomplete="off" />
+          <span class="form-error" id="err-name"></span>
         </div>
-        <span class="form-hint">Overrides the branch type default color.</span>
+        <div class="form-group">
+          <label class="form-label" for="edit-type">Type</label>
+          <select class="form-input form-select" id="edit-type">
+            <option value="main">main</option>
+            <option value="feature">feature</option>
+            <option value="release">release</option>
+            <option value="hotfix">hotfix</option>
+            <option value="custom">custom</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Color Override</label>
+          <div class="form-color-row">
+            <input type="color" class="form-color-input" id="edit-color" value="#00d4ff" />
+            <span class="form-color-label" id="edit-color-display">#00d4ff</span>
+            <button class="btn" id="edit-color-clear" style="padding:4px 8px;font-size:11px;">Use type default</button>
+          </div>
+          <span class="form-hint">Overrides the branch type default color.</span>
+        </div>
+        <hr class="form-divider" />
+        <div class="form-group">
+          <label class="form-label" for="edit-source">Source Branch (cut from)</label>
+          <select class="form-input form-select" id="edit-source">
+            <option value="">(none — root branch)</option>
+          </select>
+          <span class="form-error" id="err-source"></span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Merged Into</label>
+          <div class="multi-select" id="edit-merges-into" role="group" aria-label="Merge targets"></div>
+          <span class="form-hint">Select all branches this has been merged into.</span>
+        </div>
+        <hr class="form-divider" />
+        <div class="form-group">
+          <label class="form-label">Deployed To</label>
+          <div class="checkbox-group" id="edit-deployments"></div>
+        </div>
       </div>
-      <hr class="form-divider" />
-      <div class="form-group">
-        <label class="form-label" for="edit-source">Source Branch (cut from)</label>
-        <select class="form-input form-select" id="edit-source">
-          <option value="">(none — root branch)</option>
-        </select>
-        <span class="form-error" id="err-source"></span>
+      <div class="panel-footer">
+        <button class="btn btn-primary" id="btn-save-panel" style="width:100%;justify-content:center;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Save Changes
+        </button>
+        <button class="btn btn-danger" id="btn-delete-panel" style="width:100%;justify-content:center;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+          Delete Branch
+        </button>
       </div>
-      <div class="form-group">
-        <label class="form-label">Merged Into</label>
-        <div class="multi-select" id="edit-merges-into" role="group" aria-label="Merge targets"></div>
-        <span class="form-hint">Select all branches this has been merged into.</span>
-      </div>
-      <hr class="form-divider" />
-      <div class="form-group">
-        <label class="form-label">Deployed To</label>
-        <div class="checkbox-group" id="edit-deployments"></div>
-      </div>
-    </div>
-    <div class="panel-footer">
-      <button class="btn btn-primary" onclick="savePanel()" id="btn-save-panel" style="width:100%;justify-content:center;">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-        Save Changes
-      </button>
-      <button class="btn btn-danger" onclick="deleteBranch()" id="btn-delete-panel" style="width:100%;justify-content:center;">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
-        Delete Branch
-      </button>
-    </div>
-  </aside>
+    </aside>
 
-  <!-- SETTINGS PANEL -->
-  <aside id="settings-panel" aria-label="Settings" aria-hidden="true">
-    <div class="panel-header">
-      <h3>Settings</h3>
-      <button class="panel-close" onclick="closeSettings()" aria-label="Close settings">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <div class="panel-body">
-      <div class="form-group">
-        <label class="form-label">Environments</label>
-        <span class="form-hint">Track deployment status for each environment (max 5).</span>
-        <div id="env-list" style="margin-top:8px;display:flex;flex-direction:column;gap:6px;"></div>
-        <button class="btn" style="margin-top:8px;width:100%;justify-content:center;border-style:dashed;" onclick="addEnvironment()">+ Add Environment</button>
+    <!-- SETTINGS PANEL -->
+    <aside id="settings-panel" aria-label="Settings" aria-hidden="true">
+      <div class="panel-header">
+        <h3>Settings</h3>
+        <button class="panel-close" id="settings-panel-close" aria-label="Close settings">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
       </div>
-      <hr class="form-divider" />
-      <div class="form-group">
-        <label class="form-label">Default Branch Colors</label>
-        <span class="form-hint">Default colors by branch type (can be overridden per-branch).</span>
-        <div id="color-defaults" style="margin-top:10px;display:flex;flex-direction:column;gap:10px;"></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Environments</label>
+          <span class="form-hint">Track deployment status for each environment (max 5).</span>
+          <div id="env-list" style="margin-top:8px;display:flex;flex-direction:column;gap:6px;"></div>
+          <button class="btn" id="settings-env-add" style="margin-top:8px;width:100%;justify-content:center;border-style:dashed;">+ Add Environment</button>
+        </div>
+        <hr class="form-divider" />
+        <div class="form-group">
+          <label class="form-label">Default Branch Colors</label>
+          <span class="form-hint">Default colors by branch type (can be overridden per-branch).</span>
+          <div id="color-defaults" style="margin-top:10px;display:flex;flex-direction:column;gap:10px;"></div>
+        </div>
       </div>
-    </div>
-  </aside>
-</div>
+    </aside>
+  </div>
 
-<!-- CONFIRM DIALOG -->
-<div id="confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
-  <div id="confirm-dialog">
-    <h4 id="confirm-title">Confirm</h4>
-    <p id="confirm-message"></p>
-    <div class="btn-row">
-      <button class="btn" onclick="confirmCancel()">Cancel</button>
-      <button class="btn btn-danger" id="confirm-ok-btn" onclick="confirmOK()">Confirm</button>
+  <!-- CONFIRM DIALOG -->
+  <div id="confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+    <div id="confirm-dialog">
+      <h4 id="confirm-title">Confirm</h4>
+      <p id="confirm-message"></p>
+      <div class="btn-row">
+        <button class="btn" id="confirm-cancel-btn">Cancel</button>
+        <button class="btn btn-danger" id="confirm-ok-btn">Confirm</button>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- TOAST -->
-<div id="toast-container" aria-live="polite"></div>
+  <!-- TOAST -->
+  <div id="toast-container" aria-live="polite"></div>
 
-<script>
-// ═══════════════════════════════════════════════════════════════════
-// UTILITIES
-// ═══════════════════════════════════════════════════════════════════
-function uuid() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-    const r = Math.random() * 16 | 0;
-    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-  });
-}
-function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
-
-function showToast(msg, type = 'info', duration = 2800) {
-  const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ';
-  const t = document.createElement('div');
-  t.className = `toast ${type}`;
-  t.innerHTML = `<span>${icon}</span><span>${msg}</span>`;
-  document.getElementById('toast-container').appendChild(t);
-  setTimeout(() => t.remove(), duration);
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// DEFAULT STATE
-// ═══════════════════════════════════════════════════════════════════
-const DEFAULT_STATE = {
-  config: {
-    environments: ['Dev', 'QAS', 'Prod'],
-    branchColors: {
-      main:    '#00d4ff',
-      feature: '#f59e0b',
-      release: '#10b981',
-      hotfix:  '#ef4444',
-      custom:  '#a855f7'
-    }
-  },
-  branches: [
-    {
-      id: 'branch-main',
-      name: 'main',
-      type: 'main',
-      color: null,
-      sourceFrom: null,
-      mergesInto: [],
-      deployments: { Dev: true, QAS: true, Prod: true }
-    },
-    {
-      id: 'branch-feature-login',
-      name: 'feature/user-login',
-      type: 'feature',
-      color: null,
-      sourceFrom: 'branch-main',
-      mergesInto: ['branch-main'],
-      deployments: { Dev: true, QAS: false, Prod: false }
-    },
-    {
-      id: 'branch-release-1',
-      name: 'release/1.0',
-      type: 'release',
-      color: null,
-      sourceFrom: 'branch-main',
-      mergesInto: [],
-      deployments: { Dev: true, QAS: true, Prod: false }
-    },
-    {
-      id: 'branch-hotfix-1',
-      name: 'hotfix/patch-auth',
-      type: 'hotfix',
-      color: null,
-      sourceFrom: 'branch-main',
-      mergesInto: ['branch-main'],
-      deployments: { Dev: true, QAS: true, Prod: true }
-    }
-  ],
-  edges: []
-};
-
-// ═══════════════════════════════════════════════════════════════════
-// STATE MANAGEMENT
-// ═══════════════════════════════════════════════════════════════════
-const STORAGE_KEY = 'gitflow_state';
-let appState = null;
-
-function loadState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      appState = JSON.parse(raw);
-      // Migrate: ensure all branches have deployments for current environments
-      migrateState();
-      showToast('State restored from local storage', 'success');
-    } else {
-      appState = clone(DEFAULT_STATE);
-      rebuildEdges();
-    }
-  } catch(e) {
-    console.error('Failed to load state:', e);
-    appState = clone(DEFAULT_STATE);
-    rebuildEdges();
-  }
-}
-
-function migrateState() {
-  const envs = appState.config.environments;
-  appState.branches.forEach(b => {
-    if (!b.deployments) b.deployments = {};
-    envs.forEach(env => {
-      if (b.deployments[env] === undefined) b.deployments[env] = false;
-    });
-    if (!b.color) b.color = null;
-    if (!b.mergesInto) b.mergesInto = [];
-  });
-  rebuildEdges();
-}
-
-function saveState() {
-  try {
-    rebuildEdges();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
-    const ts = new Date().toLocaleTimeString();
-    document.getElementById('save-timestamp').textContent = `Saved ${ts}`;
-  } catch(e) {
-    console.error('Save failed:', e);
-    showToast('Save failed — storage may be full', 'error');
-  }
-}
-
-function rebuildEdges() {
-  appState.edges = [];
-  appState.branches.forEach(b => {
-    if (b.sourceFrom) {
-      const sourceExists = appState.branches.find(x => x.id === b.sourceFrom);
-      if (sourceExists) {
-        appState.edges.push({ id: uuid(), from: b.sourceFrom, to: b.id, type: 'source' });
-      }
-    }
-    (b.mergesInto || []).forEach(targetId => {
-      const targetExists = appState.branches.find(x => x.id === targetId);
-      if (targetExists) {
-        appState.edges.push({ id: uuid(), from: b.id, to: targetId, type: 'merge' });
-      }
-    });
-  });
-}
-
-function manualSave() {
-  saveState();
-  showToast('Saved to local storage ✓', 'success');
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// LAYOUT ENGINE
-// ═══════════════════════════════════════════════════════════════════
-const NODE_W = 190;
-const NODE_H = 52;
-const LANE_H = 100;
-const H_GAP = 60;
-const MARGIN_X = 80;
-const MARGIN_Y = 60;
-
-function computeLayout() {
-  const branches = appState.branches;
-  if (!branches.length) return { positions: {}, laneCount: 0 };
-
-  // Assign lanes: main=0, hotfix first above, then features, then release below
-  const typeOrder = { main: 0, hotfix: 1, release: 2, feature: 3, custom: 4 };
-  const sorted = [...branches].sort((a, b) => (typeOrder[a.type] ?? 5) - (typeOrder[b.type] ?? 5));
-
-  const laneMap = {}; // branchId -> laneIndex
-  const laneCounter = {};
-  sorted.forEach((b, i) => {
-    laneMap[b.id] = i;
-  });
-
-  // Topological sort by source dependency for X ordering
-  const idxMap = {};
-  branches.forEach(b => idxMap[b.id] = b);
-
-  // BFS from roots
-  const depths = {};
-  const getDepth = (b, visited = new Set()) => {
-    if (depths[b.id] !== undefined) return depths[b.id];
-    if (visited.has(b.id)) return 0;
-    visited.add(b.id);
-    if (!b.sourceFrom || !idxMap[b.sourceFrom]) {
-      depths[b.id] = 0;
-    } else {
-      depths[b.id] = getDepth(idxMap[b.sourceFrom], visited) + 1;
-    }
-    return depths[b.id];
-  };
-  branches.forEach(b => getDepth(b));
-
-  // Build positions
-  const positions = {};
-  branches.forEach((b, i) => {
-    const lane = laneMap[b.id];
-    const depth = depths[b.id] || 0;
-    positions[b.id] = {
-      x: MARGIN_X + depth * (NODE_W + H_GAP),
-      y: MARGIN_Y + lane * LANE_H
-    };
-  });
-
-  const laneCount = branches.length;
-  return { positions, laneCount };
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// RENDERING
-// ═══════════════════════════════════════════════════════════════════
-let selectedBranchId = null;
-
-function getBranchColor(branch) {
-  if (branch.color) return branch.color;
-  return appState.config.branchColors[branch.type] || '#7d8590';
-}
-
-function getEnvColor(envName) {
-  const idx = appState.config.environments.indexOf(envName);
-  const palette = ['#3b82f6', '#f59e0b', '#10b981', '#a855f7', '#ef4444'];
-  return palette[idx % palette.length];
-}
-
-function render() {
-  const { positions, laneCount } = computeLayout();
-  renderLanes(positions);
-  renderEdges(positions);
-  renderNodes(positions);
-  renderSidebar();
-  updateEmptyState();
-}
-
-function renderLanes(positions) {
-  const layer = document.getElementById('lanes-layer');
-  layer.innerHTML = '';
-  const canvasW = 4000;
-  const branches = appState.branches;
-  const typeOrder = { main: 0, hotfix: 1, release: 2, feature: 3, custom: 4 };
-  const sorted = [...branches].sort((a, b) => (typeOrder[a.type] ?? 5) - (typeOrder[b.type] ?? 5));
-  sorted.forEach((b, i) => {
-    const y = MARGIN_Y + i * LANE_H + NODE_H / 2;
-    // Lane dashed line
-    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    line.setAttribute('x1', 0);
-    line.setAttribute('y1', y);
-    line.setAttribute('x2', canvasW);
-    line.setAttribute('y2', y);
-    line.setAttribute('class', 'lane-line');
-    layer.appendChild(line);
-    // Lane label
-    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    text.setAttribute('x', 12);
-    text.setAttribute('y', y);
-    text.setAttribute('class', 'lane-label');
-    text.textContent = b.name.length > 22 ? b.name.slice(0, 22) + '…' : b.name;
-    layer.appendChild(text);
-  });
-}
-
-function renderEdges(positions) {
-  const layer = document.getElementById('edges-layer');
-  layer.innerHTML = '';
-  appState.edges.forEach(edge => {
-    const from = positions[edge.from];
-    const to   = positions[edge.to];
-    if (!from || !to) return;
-
-    const isMerge = edge.type === 'merge';
-    const fromBranch = appState.branches.find(b => b.id === edge.from);
-    const color = fromBranch ? getBranchColor(fromBranch) : '#7d8590';
-
-    const x1 = from.x + NODE_W;
-    const y1 = from.y + NODE_H / 2;
-    const x2 = to.x;
-    const y2 = to.y + NODE_H / 2;
-
-    const midX = (x1 + x2) / 2;
-    const d = `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`;
-
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', d);
-    path.setAttribute('stroke', isMerge ? color : '#484f58');
-    path.setAttribute('class', isMerge ? 'edge-merge' : 'edge-source');
-    if (isMerge) {
-      path.setAttribute('marker-end', 'url(#arrow-end)');
-    }
-    layer.appendChild(path);
-  });
-}
-
-function renderNodes(positions) {
-  const layer = document.getElementById('nodes-layer');
-  layer.innerHTML = '';
-  appState.branches.forEach(branch => {
-    const pos = positions[branch.id];
-    if (!pos) return;
-    const color = getBranchColor(branch);
-    const isSelected = branch.id === selectedBranchId;
-
-    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    g.setAttribute('class', `branch-node${isSelected ? ' selected' : ''}`);
-    g.setAttribute('transform', `translate(${pos.x}, ${pos.y})`);
-    g.setAttribute('role', 'button');
-    g.setAttribute('aria-label', `Branch: ${branch.name}`);
-    g.setAttribute('tabindex', '0');
-    g.style.cursor = 'pointer';
-    g.addEventListener('click', () => selectBranch(branch.id));
-    g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') selectBranch(branch.id); });
-
-    // Node background
-    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    rect.setAttribute('width', NODE_W);
-    rect.setAttribute('height', NODE_H);
-    rect.setAttribute('rx', 8);
-    rect.setAttribute('ry', 8);
-    rect.setAttribute('fill', color + '22');
-    rect.setAttribute('stroke', color);
-    rect.setAttribute('stroke-width', isSelected ? '2.5' : '1.5');
-    rect.setAttribute('class', 'node-bg');
-    g.appendChild(rect);
-
-    // Glow effect when selected
-    if (isSelected) {
-      const glow = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      glow.setAttribute('width', NODE_W + 4);
-      glow.setAttribute('height', NODE_H + 4);
-      glow.setAttribute('rx', 10);
-      glow.setAttribute('ry', 10);
-      glow.setAttribute('x', -2);
-      glow.setAttribute('y', -2);
-      glow.setAttribute('fill', 'none');
-      glow.setAttribute('stroke', color);
-      glow.setAttribute('stroke-width', '1');
-      glow.setAttribute('opacity', '0.3');
-      g.insertBefore(glow, rect);
-    }
-
-    // Type tag
-    const typeTag = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    typeTag.setAttribute('x', 10);
-    typeTag.setAttribute('y', 14);
-    typeTag.setAttribute('class', 'node-type-tag');
-    typeTag.setAttribute('fill', color);
-    typeTag.setAttribute('opacity', '0.7');
-    typeTag.textContent = branch.type.toUpperCase();
-    g.appendChild(typeTag);
-
-    // Branch name label
-    const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    label.setAttribute('x', 10);
-    label.setAttribute('y', 32);
-    label.setAttribute('class', 'node-label');
-    const maxLen = 22;
-    label.textContent = branch.name.length > maxLen ? branch.name.slice(0, maxLen) + '…' : branch.name;
-    g.appendChild(label);
-
-    // Deployment badges
-    const envs = appState.config.environments;
-    const badgeStartX = NODE_W - (envs.length * 18) - 6;
-    envs.forEach((env, i) => {
-      const deployed = branch.deployments && branch.deployments[env];
-      const cx = badgeStartX + i * 18 + 8;
-      const cy = 14;
-      const envColor = getEnvColor(env);
-
-      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      circle.setAttribute('cx', cx);
-      circle.setAttribute('cy', cy);
-      circle.setAttribute('r', 5);
-      circle.setAttribute('fill', deployed ? envColor : 'transparent');
-      circle.setAttribute('stroke', envColor);
-      circle.setAttribute('stroke-width', '1.5');
-      circle.setAttribute('opacity', deployed ? '1' : '0.4');
-      circle.setAttribute('class', 'env-badge-circle');
-      const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-      title.textContent = `${env}: ${deployed ? 'Deployed' : 'Not deployed'}`;
-      circle.appendChild(title);
-      g.appendChild(circle);
-
-      // Env name below dot
-      const envLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      envLabel.setAttribute('x', cx);
-      envLabel.setAttribute('y', 23);
-      envLabel.setAttribute('text-anchor', 'middle');
-      envLabel.setAttribute('font-family', 'JetBrains Mono, monospace');
-      envLabel.setAttribute('font-size', '7');
-      envLabel.setAttribute('fill', envColor);
-      envLabel.setAttribute('opacity', deployed ? '0.9' : '0.3');
-      envLabel.textContent = env.slice(0, 3).toUpperCase();
-      g.appendChild(envLabel);
-    });
-
-    layer.appendChild(g);
-  });
-}
-
-function renderSidebar() {
-  const list = document.getElementById('branch-list');
-  list.innerHTML = '';
-  document.getElementById('branch-count').textContent = appState.branches.length;
-
-  const typeOrder = { main: 0, hotfix: 1, release: 2, feature: 3, custom: 4 };
-  const sorted = [...appState.branches].sort((a, b) => (typeOrder[a.type] ?? 5) - (typeOrder[b.type] ?? 5));
-
-  sorted.forEach(b => {
-    const color = getBranchColor(b);
-    const item = document.createElement('div');
-    item.className = `branch-item${b.id === selectedBranchId ? ' active' : ''}`;
-    item.setAttribute('role', 'listitem');
-    item.setAttribute('tabindex', '0');
-    item.setAttribute('aria-label', `${b.name} — ${b.type}`);
-    if (b.id === selectedBranchId) item.style.setProperty('--item-color', color);
-    item.innerHTML = `
-      <span class="branch-color-dot" style="background:${color};"></span>
-      <span class="branch-item-name">${b.name}</span>
-      <span class="branch-item-type">${b.type}</span>
-    `;
-    item.addEventListener('click', () => selectBranch(b.id));
-    item.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') selectBranch(b.id); });
-    list.appendChild(item);
-  });
-}
-
-function updateEmptyState() {
-  const es = document.getElementById('empty-state');
-  es.classList.toggle('visible', appState.branches.length === 0);
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// CANVAS PAN & ZOOM
-// ═══════════════════════════════════════════════════════════════════
-let transform = { x: 0, y: 0, scale: 1 };
-let isPanning = false;
-let panStart = { x: 0, y: 0 };
-
-function applyTransform() {
-  const g = document.getElementById('canvas-transform-group');
-  g.setAttribute('transform', `translate(${transform.x},${transform.y}) scale(${transform.scale})`);
-  document.getElementById('zoom-display').textContent = Math.round(transform.scale * 100) + '%';
-}
-
-const wrapper = document.getElementById('canvas-wrapper');
-wrapper.addEventListener('mousedown', e => {
-  if (e.target === wrapper || e.target.id === 'svg-canvas' || e.target.id === 'canvas-transform-group'
-      || e.target.classList.contains('lane-line') || e.target.classList.contains('lane-label')) {
-    isPanning = true;
-    panStart = { x: e.clientX - transform.x, y: e.clientY - transform.y };
-    wrapper.classList.add('panning');
-  }
-});
-window.addEventListener('mousemove', e => {
-  if (!isPanning) return;
-  transform.x = e.clientX - panStart.x;
-  transform.y = e.clientY - panStart.y;
-  applyTransform();
-});
-window.addEventListener('mouseup', () => {
-  isPanning = false;
-  wrapper.classList.remove('panning');
-});
-wrapper.addEventListener('wheel', e => {
-  e.preventDefault();
-  const delta = -e.deltaY * 0.001;
-  const newScale = Math.min(2.5, Math.max(0.3, transform.scale + delta));
-  const rect = wrapper.getBoundingClientRect();
-  const mx = e.clientX - rect.left;
-  const my = e.clientY - rect.top;
-  transform.x = mx - (mx - transform.x) * (newScale / transform.scale);
-  transform.y = my - (my - transform.y) * (newScale / transform.scale);
-  transform.scale = newScale;
-  applyTransform();
-}, { passive: false });
-
-function zoomIn() {
-  transform.scale = Math.min(2.5, transform.scale + 0.15);
-  applyTransform();
-}
-function zoomOut() {
-  transform.scale = Math.max(0.3, transform.scale - 0.15);
-  applyTransform();
-}
-function resetView() {
-  transform = { x: 40, y: 20, scale: 1 };
-  applyTransform();
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// BRANCH SELECTION & PANEL
-// ═══════════════════════════════════════════════════════════════════
-let editMode = 'edit'; // 'edit' | 'add'
-
-function selectBranch(id) {
-  selectedBranchId = id;
-  editMode = 'edit';
-  const branch = appState.branches.find(b => b.id === id);
-  if (!branch) return;
-  populatePanel(branch);
-  openPanel();
-  render();
-}
-
-function openAddPanel() {
-  selectedBranchId = null;
-  editMode = 'add';
-  populatePanel(null);
-  openPanel();
-  render();
-}
-
-function populatePanel(branch) {
-  const isNew = !branch;
-  document.getElementById('panel-title').textContent = isNew ? 'Add Branch' : 'Edit Branch';
-  document.getElementById('btn-delete-panel').style.display = isNew ? 'none' : '';
-  document.getElementById('edit-branch-id').value = branch ? branch.id : '';
-  document.getElementById('edit-name').value = branch ? branch.name : '';
-  document.getElementById('edit-type').value = branch ? branch.type : 'feature';
-  const color = branch ? (branch.color || appState.config.branchColors[branch.type] || '#00d4ff') : '#f59e0b';
-  document.getElementById('edit-color').value = color;
-  document.getElementById('edit-color-display').textContent = color;
-
-  // Hide errors
-  document.querySelectorAll('.form-error').forEach(e => { e.textContent = ''; e.classList.remove('visible'); });
-
-  // Source dropdown
-  const sourceEl = document.getElementById('edit-source');
-  sourceEl.innerHTML = '<option value="">(none — root branch)</option>';
-  appState.branches.forEach(b => {
-    if (branch && b.id === branch.id) return;
-    const opt = document.createElement('option');
-    opt.value = b.id;
-    opt.textContent = b.name;
-    if (branch && branch.sourceFrom === b.id) opt.selected = true;
-    sourceEl.appendChild(opt);
-  });
-
-  // Merges-into multi-select
-  const mergesEl = document.getElementById('edit-merges-into');
-  mergesEl.innerHTML = '';
-  appState.branches.forEach(b => {
-    if (branch && b.id === branch.id) return;
-    const id = `merge-check-${b.id}`;
-    const item = document.createElement('div');
-    item.className = 'multi-select-item';
-    const chk = document.createElement('input');
-    chk.type = 'checkbox';
-    chk.id = id;
-    chk.value = b.id;
-    chk.checked = branch && branch.mergesInto && branch.mergesInto.includes(b.id);
-    const lbl = document.createElement('label');
-    lbl.htmlFor = id;
-    const dot = document.createElement('span');
-    dot.className = 'branch-color-dot';
-    dot.style.background = getBranchColor(b);
-    lbl.appendChild(dot);
-    lbl.appendChild(document.createTextNode(' ' + b.name));
-    item.appendChild(chk);
-    item.appendChild(lbl);
-    mergesEl.appendChild(item);
-  });
-
-  // Deployments
-  const deplEl = document.getElementById('edit-deployments');
-  deplEl.innerHTML = '';
-  appState.config.environments.forEach(env => {
-    const id = `depl-${env}`;
-    const item = document.createElement('div');
-    item.className = 'checkbox-item';
-    const chk = document.createElement('input');
-    chk.type = 'checkbox';
-    chk.id = id;
-    chk.checked = branch && branch.deployments && branch.deployments[env];
-    const lbl = document.createElement('label');
-    lbl.htmlFor = id;
-    const dot = document.createElement('span');
-    dot.className = 'env-dot';
-    dot.style.background = getEnvColor(env);
-    lbl.appendChild(dot);
-    lbl.appendChild(document.createTextNode(' ' + env));
-    item.appendChild(chk);
-    item.appendChild(lbl);
-    deplEl.appendChild(item);
-  });
-}
-
-function openPanel() {
-  const panel = document.getElementById('edit-panel');
-  panel.classList.add('open');
-  panel.setAttribute('aria-hidden', 'false');
-  setTimeout(() => document.getElementById('edit-name').focus(), 50);
-}
-
-function closePanel() {
-  const panel = document.getElementById('edit-panel');
-  panel.classList.remove('open');
-  panel.setAttribute('aria-hidden', 'true');
-  selectedBranchId = null;
-  render();
-}
-
-function onTypeChange() {
-  const type = document.getElementById('edit-type').value;
-  const defaultColor = appState.config.branchColors[type] || '#7d8590';
-  document.getElementById('edit-color').value = defaultColor;
-  document.getElementById('edit-color-display').textContent = defaultColor;
-}
-
-document.getElementById('edit-color').addEventListener('input', function() {
-  document.getElementById('edit-color-display').textContent = this.value;
-});
-
-function clearColorOverride() {
-  const type = document.getElementById('edit-type').value;
-  const defaultColor = appState.config.branchColors[type] || '#7d8590';
-  document.getElementById('edit-color').value = defaultColor;
-  document.getElementById('edit-color-display').textContent = defaultColor;
-  showToast('Using type default color', 'info', 1500);
-}
-
-function savePanel() {
-  const id = document.getElementById('edit-branch-id').value;
-  const name = document.getElementById('edit-name').value.trim();
-  const type = document.getElementById('edit-type').value;
-  const color = document.getElementById('edit-color').value;
-  const sourceFrom = document.getElementById('edit-source').value || null;
-
-  // Validation
-  let valid = true;
-  const setErr = (elId, msg) => {
-    const el = document.getElementById(elId);
-    el.textContent = msg;
-    el.classList.toggle('visible', !!msg);
-    if (msg) valid = false;
-  };
-
-  setErr('err-name', '');
-  setErr('err-source', '');
-
-  if (!name) { setErr('err-name', 'Branch name is required.'); }
-  const nameConflict = appState.branches.find(b => b.name === name && b.id !== id);
-  if (nameConflict) { setErr('err-name', 'A branch with this name already exists.'); }
-  if (sourceFrom === id) { setErr('err-source', 'A branch cannot source from itself.'); }
-  if (!valid) return;
-
-  // Gather merge targets
-  const mergeChecks = document.querySelectorAll('#edit-merges-into input[type="checkbox"]:checked');
-  const mergesInto = Array.from(mergeChecks).map(c => c.value);
-
-  // Gather deployments
-  const deployments = {};
-  appState.config.environments.forEach(env => {
-    const chk = document.getElementById(`depl-${env}`);
-    deployments[env] = chk ? chk.checked : false;
-  });
-
-  // Determine if color is different from type default
-  const typeDefault = appState.config.branchColors[type] || '#7d8590';
-  const colorOverride = color !== typeDefault ? color : null;
-
-  if (editMode === 'add') {
-    const newBranch = {
-      id: uuid(),
-      name,
-      type,
-      color: colorOverride,
-      sourceFrom,
-      mergesInto,
-      deployments
-    };
-    appState.branches.push(newBranch);
-    selectedBranchId = newBranch.id;
-    showToast(`Branch "${name}" added`, 'success');
-  } else {
-    const branch = appState.branches.find(b => b.id === id);
-    if (!branch) return;
-    branch.name = name;
-    branch.type = type;
-    branch.color = colorOverride;
-    branch.sourceFrom = sourceFrom;
-    branch.mergesInto = mergesInto;
-    branch.deployments = deployments;
-    showToast(`Branch "${name}" updated`, 'success');
-  }
-
-  saveState();
-  render();
-
-  // If we just added, switch to edit mode for the new branch
-  if (editMode === 'add') {
-    editMode = 'edit';
-    document.getElementById('edit-branch-id').value = selectedBranchId;
-    document.getElementById('btn-delete-panel').style.display = '';
-    document.getElementById('panel-title').textContent = 'Edit Branch';
-    // Re-populate merge list and source with new branch excluded
-    const branch = appState.branches.find(b => b.id === selectedBranchId);
-    if (branch) populatePanel(branch);
-  }
-}
-
-function deleteBranch() {
-  const id = document.getElementById('edit-branch-id').value;
-  const branch = appState.branches.find(b => b.id === id);
-  if (!branch) return;
-
-  // Guard: cannot delete last main branch
-  if (branch.type === 'main' && appState.branches.filter(b => b.type === 'main').length <= 1) {
-    showToast('Cannot delete the last main branch.', 'error');
-    return;
-  }
-
-  confirmAction(
-    `Delete "${branch.name}"?`,
-    `This will remove the branch and all of its connections. This cannot be undone.`,
-    () => {
-      // Remove from other branches' mergesInto
-      appState.branches.forEach(b => {
-        b.mergesInto = (b.mergesInto || []).filter(mid => mid !== id);
-        if (b.sourceFrom === id) b.sourceFrom = null;
-      });
-      appState.branches = appState.branches.filter(b => b.id !== id);
-      saveState();
-      closePanel();
-      showToast(`Branch deleted`, 'info');
-      render();
-    }
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// SETTINGS PANEL
-// ═══════════════════════════════════════════════════════════════════
-function openSettings() {
-  renderSettingsPanel();
-  document.getElementById('settings-panel').classList.add('open');
-  document.getElementById('settings-panel').setAttribute('aria-hidden', 'false');
-}
-
-function closeSettings() {
-  document.getElementById('settings-panel').classList.remove('open');
-  document.getElementById('settings-panel').setAttribute('aria-hidden', 'true');
-}
-
-function renderSettingsPanel() {
-  // Environments
-  const envList = document.getElementById('env-list');
-  envList.innerHTML = '';
-  appState.config.environments.forEach((env, i) => {
-    const row = document.createElement('div');
-    row.style.cssText = 'display:flex;gap:8px;align-items:center;';
-    const inp = document.createElement('input');
-    inp.className = 'form-input';
-    inp.style.flex = '1';
-    inp.value = env;
-    inp.setAttribute('aria-label', `Environment ${i + 1} name`);
-    inp.addEventListener('change', () => renameEnvironment(i, inp.value.trim()));
-    const dot = document.createElement('span');
-    dot.className = 'env-dot';
-    dot.style.background = getEnvColor(env);
-    dot.style.flexShrink = '0';
-    const delBtn = document.createElement('button');
-    delBtn.className = 'btn btn-danger';
-    delBtn.style.cssText = 'padding:4px 8px;font-size:11px;';
-    delBtn.textContent = '✕';
-    delBtn.setAttribute('aria-label', `Remove environment ${env}`);
-    delBtn.addEventListener('click', () => removeEnvironment(i));
-    row.appendChild(dot);
-    row.appendChild(inp);
-    row.appendChild(delBtn);
-    envList.appendChild(row);
-  });
-
-  // Color defaults
-  const colorDefaults = document.getElementById('color-defaults');
-  colorDefaults.innerHTML = '';
-  ['main', 'feature', 'release', 'hotfix', 'custom'].forEach(type => {
-    const row = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:center;gap:10px;';
-    const colorInp = document.createElement('input');
-    colorInp.type = 'color';
-    colorInp.className = 'form-color-input';
-    colorInp.value = appState.config.branchColors[type] || '#7d8590';
-    colorInp.addEventListener('input', function() {
-      appState.config.branchColors[type] = this.value;
-      label.textContent = this.value;
-      saveState();
-      render();
-    });
-    const label = document.createElement('span');
-    label.style.cssText = 'font-size:12px;font-family:var(--font-code);color:var(--text-muted);flex:1;';
-    label.textContent = appState.config.branchColors[type];
-    const typeName = document.createElement('span');
-    typeName.style.cssText = 'font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-faint);width:56px;text-align:right;';
-    typeName.textContent = type;
-    row.appendChild(colorInp);
-    row.appendChild(label);
-    row.appendChild(typeName);
-    colorDefaults.appendChild(row);
-  });
-}
-
-function addEnvironment() {
-  if (appState.config.environments.length >= 5) {
-    showToast('Maximum 5 environments supported.', 'error');
-    return;
-  }
-  const newEnv = `Env${appState.config.environments.length + 1}`;
-  appState.config.environments.push(newEnv);
-  appState.branches.forEach(b => {
-    if (!b.deployments) b.deployments = {};
-    b.deployments[newEnv] = false;
-  });
-  saveState();
-  render();
-  renderSettingsPanel();
-  showToast(`Environment "${newEnv}" added`, 'success');
-}
-
-function removeEnvironment(idx) {
-  if (appState.config.environments.length <= 1) {
-    showToast('At least one environment is required.', 'error');
-    return;
-  }
-  const envName = appState.config.environments[idx];
-  appState.config.environments.splice(idx, 1);
-  appState.branches.forEach(b => {
-    if (b.deployments) delete b.deployments[envName];
-  });
-  saveState();
-  render();
-  renderSettingsPanel();
-  showToast(`Environment "${envName}" removed`, 'info');
-}
-
-function renameEnvironment(idx, newName) {
-  if (!newName) return;
-  const oldName = appState.config.environments[idx];
-  appState.config.environments[idx] = newName;
-  appState.branches.forEach(b => {
-    if (b.deployments && b.deployments[oldName] !== undefined) {
-      b.deployments[newName] = b.deployments[oldName];
-      delete b.deployments[oldName];
-    }
-  });
-  saveState();
-  render();
-  renderSettingsPanel();
-  showToast(`Renamed to "${newName}"`, 'success');
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// EXPORT / IMPORT
-// ═══════════════════════════════════════════════════════════════════
-function exportJSON() {
-  const json = JSON.stringify(appState, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'gitflow-state.json';
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast('Exported gitflow-state.json', 'success');
-}
-
-function importJSON(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      const imported = JSON.parse(e.target.result);
-      if (!imported.config || !imported.branches) throw new Error('Invalid schema');
-      confirmAction(
-        'Import State?',
-        `This will replace all current branches and settings with the imported data. Continue?`,
-        () => {
-          appState = imported;
-          migrateState();
-          saveState();
-          render();
-          showToast('State imported successfully', 'success');
-        }
-      );
-    } catch(err) {
-      showToast('Import failed: Invalid JSON or schema', 'error', 4000);
-    }
-  };
-  reader.readAsText(file);
-  event.target.value = '';
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// CONFIRM DIALOG
-// ═══════════════════════════════════════════════════════════════════
-let _confirmCallback = null;
-function confirmAction(title, message, callback) {
-  document.getElementById('confirm-title').textContent = title;
-  document.getElementById('confirm-message').textContent = message;
-  _confirmCallback = callback;
-  document.getElementById('confirm-overlay').classList.add('open');
-}
-function confirmOK() {
-  document.getElementById('confirm-overlay').classList.remove('open');
-  if (_confirmCallback) { _confirmCallback(); _confirmCallback = null; }
-}
-function confirmCancel() {
-  document.getElementById('confirm-overlay').classList.remove('open');
-  _confirmCallback = null;
-}
-function confirmReset() {
-  confirmAction(
-    'Reset to Default?',
-    'This will erase all branches and restore the example state. Your current work cannot be recovered.',
-    () => {
-      appState = clone(DEFAULT_STATE);
-      rebuildEdges();
-      saveState();
-      closePanel();
-      render();
-      showToast('Reset to default state', 'info');
-    }
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// KEYBOARD SHORTCUTS
-// ═══════════════════════════════════════════════════════════════════
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    if (document.getElementById('settings-panel').classList.contains('open')) { closeSettings(); return; }
-    if (document.getElementById('edit-panel').classList.contains('open')) { closePanel(); return; }
-    if (document.getElementById('confirm-overlay').classList.contains('open')) { confirmCancel(); return; }
-  }
-  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-    e.preventDefault();
-    manualSave();
-  }
-  if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
-    e.preventDefault();
-    openAddPanel();
-  }
-});
-
-// ═══════════════════════════════════════════════════════════════════
-// INIT
-// ═══════════════════════════════════════════════════════════════════
-loadState();
-resetView();
-render();
-</script>
 </body>
 </html>
