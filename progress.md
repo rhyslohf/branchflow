@@ -32,6 +32,14 @@
 
 ---
 
+### Session 3 — Undo/Redo Stack Implementation
+**Date:** 2026-07-02  
+**Agent:** Antigravity (Gemini 3.5 Flash)  
+**Summary:** Implemented in-memory undo/redo stacks (capped at 20 states) inside state.js. Integrated stack tracking directly with saveState, ensuring state changes are automatically recorded. Added Undo/Redo buttons to the top toolbar, wired click event listeners, and mapped keyboard shortcuts (Ctrl+Z, Ctrl+Y, Ctrl+Shift+Z).  
+**Files changed:** `index.html`, `src/state.js`, `src/main.js`
+
+---
+
 ## Feature Status
 
 ### Core Infrastructure
@@ -113,7 +121,7 @@
 
 ### Nice-to-Have (v1.1)
 - [x] Drag-to-reorder branches within their lane
-- [ ] Undo/redo stack (in-memory, max 20)
+- [x] Undo/redo stack (in-memory, max 20)
 - [ ] Branch search/filter in sidebar
 - [ ] Mini-map for large graphs (>15 branches)
 - [ ] Keyboard shortcut cheatsheet modal

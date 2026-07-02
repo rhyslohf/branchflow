@@ -58,6 +58,12 @@ const STORAGE_KEY = 'gitflow_state';
 export let appState = null;
 export let selectedBranchId = null;
 
+// Undo/Redo Stacks
+export let undoStack = [];
+export let redoStack = [];
+let lastSavedState = null;
+let isUndoRedoing = false;
+
 export function setSelectedBranchId(id) {
   selectedBranchId = id;
 }
@@ -90,6 +96,10 @@ export function loadState() {
     appState = cloneDeep(DEFAULT_STATE);
     rebuildEdges();
   }
+  // Initialize baseline snapshot for undo/redo
+  lastSavedState = cloneDeep(appState);
+  undoStack = [];
+  redoStack = [];
 }
 
 export function migrateState() {
@@ -109,6 +119,24 @@ export function saveState() {
   try {
     rebuildEdges();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+
+    // Manage undo/redo history
+    if (!isUndoRedoing) {
+      if (lastSavedState) {
+        const stateStr = JSON.stringify(appState);
+        const lastStr = JSON.stringify(lastSavedState);
+        if (stateStr !== lastStr) {
+          undoStack.push(cloneDeep(lastSavedState));
+          if (undoStack.length > 20) {
+            undoStack.shift();
+          }
+          redoStack = []; // Clear redo stack on new action
+        }
+      }
+      lastSavedState = cloneDeep(appState);
+    }
+    updateUndoRedoButtons();
+
     const ts = dayjs().format('HH:mm:ss');
     const tsEl = document.getElementById('save-timestamp');
     if (tsEl) {
@@ -118,6 +146,37 @@ export function saveState() {
     console.error('Save failed:', e);
     showToast('Save failed — storage may be full', 'error');
   }
+}
+
+export function updateUndoRedoButtons() {
+  const undoBtn = document.getElementById('toolbar-undo-btn');
+  const redoBtn = document.getElementById('toolbar-redo-btn');
+  if (undoBtn) undoBtn.disabled = undoStack.length === 0;
+  if (redoBtn) redoBtn.disabled = redoStack.length === 0;
+}
+
+export function undo(renderCallback) {
+  if (undoStack.length === 0) return;
+  isUndoRedoing = true;
+  redoStack.push(cloneDeep(appState));
+  appState = undoStack.pop();
+  saveState();
+  isUndoRedoing = false;
+  updateUndoRedoButtons();
+  if (renderCallback) renderCallback();
+  showToast('Undo action successful', 'info');
+}
+
+export function redo(renderCallback) {
+  if (redoStack.length === 0) return;
+  isUndoRedoing = true;
+  undoStack.push(cloneDeep(appState));
+  appState = redoStack.pop();
+  saveState();
+  isUndoRedoing = false;
+  updateUndoRedoButtons();
+  if (renderCallback) renderCallback();
+  showToast('Redo action successful', 'info');
 }
 
 export function rebuildEdges() {

@@ -11,7 +11,10 @@ import {
   saveState,
   rebuildEdges,
   manualSave,
-  migrateState
+  migrateState,
+  undo,
+  redo,
+  updateUndoRedoButtons
 } from './state.js';
 
 import {
@@ -99,6 +102,22 @@ function initToolbar() {
   const saveBtn = document.getElementById('toolbar-save-btn');
   if (saveBtn) saveBtn.addEventListener('click', manualSave);
 
+  const undoBtn = document.getElementById('toolbar-undo-btn');
+  if (undoBtn) {
+    undoBtn.addEventListener('click', () => {
+      closePanel();
+      undo(render);
+    });
+  }
+
+  const redoBtn = document.getElementById('toolbar-redo-btn');
+  if (redoBtn) {
+    redoBtn.addEventListener('click', () => {
+      closePanel();
+      redo(render);
+    });
+  }
+
   const exportBtn = document.getElementById('toolbar-export-btn');
   if (exportBtn) exportBtn.addEventListener('click', exportJSON);
 
@@ -134,6 +153,18 @@ function initHotkeys() {
     e.preventDefault();
     openAddPanel();
   });
+
+  hotkeys('ctrl+z, cmd+z', (e) => {
+    e.preventDefault();
+    closePanel();
+    undo(render);
+  });
+
+  hotkeys('ctrl+y, cmd+y, ctrl+shift+z, cmd+shift+z', (e) => {
+    e.preventDefault();
+    closePanel();
+    redo(render);
+  });
   
   hotkeys('escape', () => {
     const settingsPanel = document.getElementById('settings-panel');
@@ -159,6 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initEditor(render);
   initSettings();
   initHotkeys();
+  updateUndoRedoButtons();
   resetView();
   render();
 });
